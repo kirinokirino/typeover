@@ -2,8 +2,9 @@ use macroquad::prelude::{
     clear_background, color_u8, draw_text_ex, get_char_pressed, load_ttf_font, next_frame, Color,
     TextParams,
 };
+use walkdir::{DirEntry, Error, WalkDir};
 
-use std::fs::read_to_string;
+use std::{fs::read_to_string, path::PathBuf};
 
 #[macroquad::main("game")]
 async fn main() {
@@ -21,17 +22,26 @@ struct Game {
     text_to_type: String,
     text_typed: String,
     is_running: bool,
+    possible_paths: Vec<PathBuf>,
 }
 
 impl Game {
     pub fn new(font: Font) -> Self {
-        let text = read_to_string("./src/main.rs").unwrap();
+        let mut possible_paths = Vec::new();
+        for entry in WalkDir::new("..").into_iter().filter_map(|e| check_path(e)) {
+            possible_paths.push(entry.into_path());
+        }
+        let path = possible_paths
+            .get(fastrand::usize(..possible_paths.len()))
+            .unwrap();
+        let text = read_to_string(path).unwrap_or("Please press TAB!".to_owned());
 
         Self {
             text_to_type: text,
             text_typed: String::new(),
             font,
             is_running: true,
+            possible_paths,
         }
     }
 
@@ -41,15 +51,32 @@ impl Game {
                 match character {
                     '\u{f028}' => self.text_typed.push('\n'),
                     '\u{f029}' => self.is_running = false,
+                    '\u{f02b}' => self.next_text(),
                     _ => {
                         println!("{:?}", character);
                         continue;
                     }
                 }
                 // Backspace Esc Enter
+            } else {
+                self.text_typed.push(character);
             }
-            self.text_typed.push(character);
         }
+    }
+
+    pub fn next_text(&mut self) {
+        let mut text = None;
+        let mut emergency_stop = 0;
+        while text.is_none() && emergency_stop < 100 {
+            emergency_stop += 1;
+            let path = self
+                .possible_paths
+                .get(fastrand::usize(..self.possible_paths.len()))
+                .unwrap();
+            text = read_to_string(path).map_or(None, |s| Some(s));
+        }
+        self.text_to_type = text.unwrap();
+        self.text_typed = String::new();
     }
 
     pub fn draw(&self) {
@@ -64,6 +91,36 @@ impl Game {
                 .draw(12.0, line_num, line, color_u8![255, 255, 255, 255]);
         }
     }
+}
+
+fn check_path(e: Result<DirEntry, Error>) -> Option<DirEntry> {
+    if e.is_err() {
+        return None;
+    }
+    let e = unsafe { e.unwrap_unchecked() };
+    if is_hidden(&e) {
+        return None;
+    }
+    if is_rust_file(&e) {
+        return Some(e);
+    }
+    None
+}
+
+fn is_hidden(entry: &DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|s| s.starts_with("."))
+        .unwrap_or(false)
+}
+
+fn is_rust_file(entry: &DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|s| s.ends_with(".rs"))
+        .unwrap_or(false)
 }
 
 struct Font {

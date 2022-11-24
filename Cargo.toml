@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 macroquad = { version = "0.3", default-features = false }
+walkdir = "2"
+fastrand = "1"
