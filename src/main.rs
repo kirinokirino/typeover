@@ -141,20 +141,29 @@ impl Game {
         let orig_text = &self.text_to_type;
         let mut last_style = Highlight(0);
         let mut line_num = 0;
-        let mut x = 12.0;
+        let mut x = self.font.width();
         for event in &self.highlights_orig {
             match event {
                 HighlightEvent::Source { start, end } => {
                     let string =
                         String::from_utf8((&(orig_text.as_bytes())[*start..*end]).to_vec())
                             .unwrap();
-                    if string.contains("\n") {
-                        line_num += 1;
-                        x = 12.0;
+                    for char in string.chars() {
+                        match char {
+                            '\n' => {
+                            	line_num += 1;
+                            	x = self.font.width();
+                            },
+                            '\t' => x += self.font.width() * 2.0,
+                            ' ' => x += self.font.width(),
+                            c => {
+                                if !c.is_control() && !c.is_whitespace() {
+                                    self.font.draw_line(x, line_num, &format!("{c}"));
+                                    x += self.font.width();
+                                }
+                            }
+                        }
                     }
-
-                    self.font.draw_line(x, line_num, string.trim_matches('\n'));
-                    x += string.len() as f32 * 12.0;
                 }
                 HighlightEvent::HighlightStart(s) => {
                     if s == &last_style {
@@ -195,7 +204,7 @@ impl Game {
 
         self.font.change_color(color_u8!(255, 255, 255, 255));
         for (line_num, line) in self.text_typed.lines().enumerate() {
-            self.font.draw_line(12.0, line_num, line);
+            self.font.draw_line(self.font.width(), line_num, line);
         }
     }
 }
@@ -245,6 +254,10 @@ impl Font {
             (self.font_size as f32 * 1.3).floor() * (1 + line_num) as f32,
             self.font,
         );
+    }
+
+    pub fn width(&self) -> f32 {
+        self.font_size as f32 * 0.615
     }
 }
 
