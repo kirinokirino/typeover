@@ -33,13 +33,13 @@ struct Game {
 impl Game {
     pub fn new(font: Font) -> Self {
         let mut possible_paths = Vec::new();
-        for entry in WalkDir::new("..").into_iter().filter_map(|e| check_path(e)) {
+        for entry in WalkDir::new("..").into_iter().filter_map(check_path) {
             possible_paths.push(entry.into_path());
         }
         let path = possible_paths
             .get(fastrand::usize(..possible_paths.len()))
             .unwrap();
-        let text = read_to_string(path).unwrap_or("Please press TAB!".to_owned());
+        let text = read_to_string(path).unwrap_or_else(|_| "Please press TAB!".to_owned());
         let highlight_names = &[
             "attribute",
             "comment",
@@ -127,7 +127,7 @@ impl Game {
                 .possible_paths
                 .get(fastrand::usize(..self.possible_paths.len()))
                 .unwrap();
-            text = read_to_string(path).map_or(None, |s| Some(s));
+            text = read_to_string(path).ok();
         }
         self.text_to_type = text.unwrap();
         self.text_typed = String::new();
@@ -146,7 +146,7 @@ impl Game {
             match event {
                 HighlightEvent::Source { start, end } => {
                     let string =
-                        String::from_utf8((&(orig_text.as_bytes())[*start..*end]).to_vec())
+                        String::from_utf8((orig_text.as_bytes()[*start..*end]).to_vec())
                             .unwrap();
                     for char in string.chars() {
                         match char {
@@ -210,7 +210,7 @@ impl Game {
 }
 
 fn color_from_xterm(xterm_id: usize) -> Color {
-    let s = xterm_colors[xterm_id];
+    let s = XTERM_COLORS[xterm_id];
     let r = u8::from_str_radix(&s[0..2], 16).unwrap();
     let g = u8::from_str_radix(&s[2..4], 16).unwrap();
     let b = u8::from_str_radix(&s[4..6], 16).unwrap();
@@ -249,7 +249,7 @@ impl Font {
 
     pub fn draw_line(&self, x: f32, line_num: usize, line: &str) {
         draw_text_ex(
-            &line,
+            line,
             x,
             (self.font_size as f32 * 1.3).floor() * (1 + line_num) as f32,
             self.font,
@@ -279,7 +279,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
     entry
         .file_name()
         .to_str()
-        .map(|s| s.starts_with("."))
+        .map(|s| s.starts_with('.'))
         .unwrap_or(false)
 }
 
@@ -291,7 +291,7 @@ fn is_rust_file(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
-static xterm_colors: [&str; 256] = [
+static XTERM_COLORS: [&str; 256] = [
     "000000", "800000", "008000", "808000", "000080", "800080", "008080", "c0c0c0", "808080",
     "ff0000", "00ff00", "ffff00", "0000ff", "ff00ff", "00ffff", "ffffff", "000000", "00005f",
     "000087", "0000af", "0000d7", "0000ff", "005f00", "005f5f", "005f87", "005faf", "005fd7",
