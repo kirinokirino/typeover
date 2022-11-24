@@ -9,3 +9,5 @@ edition = "2021"
 macroquad = { version = "0.3", default-features = false }
 walkdir = "2"
 fastrand = "1"
+tree-sitter-highlight = "0.20"
+tree-sitter-rust = "0.20"
